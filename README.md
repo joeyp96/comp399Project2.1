@@ -1,4 +1,4 @@
-* to run the program *
+ *to run the program*
 
 - Add all files in this repository to a new pycharm project. (python 3.11 reccomended)
 - raw audio files may stay in the raw audio files folder within the currect working directory for testing. 

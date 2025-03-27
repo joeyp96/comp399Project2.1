@@ -22,13 +22,13 @@
 - python 3.11 using pycharm is highly reccomended as that was the interpreter version used to create the program.
 
 - The main.py file contains all GUI functionality and makes calls to the audio tools.py file to process the audio. 
-
-
-
+-
+-
+-
   *what the program does*
-
-
-
+-
+-
+-
 - This program is an audio processing application that incorporates an AI model.
 - once the GUI is launched:
 - The user must select an audio file and then chose from a list of multiple audio operations to perform on the file.
@@ -36,11 +36,13 @@
 - what to do next. The user must have an audio file selected to do anything.
 - Once an audio operation has completed, the file will export to a folder called processed audio.
 - this folder will be created automatically after your first operation completes.
-
-
+-
+-
+-
   *important*
-
-  
+-
+-
+- 
 - this program only supports .wav files. 
 - I attempted to include an audio file to allow anyone to test the remove silence function, but the file was too large.
 - If there is no silence detected, the process will fail.
@@ -48,11 +50,13 @@
 - this is due to FFMPEG not being supported.
 - If you must see this process work, I may demo it for you in class.
 - Otherwise, you may find a .wav file that has a long silence at the end and try it. (try 30sec of silence or so)
-
-
+-
+-
+-
   *conclusion*
-
-  
+-
+-
+- 
 - This portion of the read me contains what my goals were initially, the issues I encountered, and what I learned.
 
 - I almost achieved exactly what I set out for initially. I wanted an audio processing application where a user could

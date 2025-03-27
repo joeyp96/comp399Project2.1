@@ -23,7 +23,11 @@
 
 - The main.py file contains all GUI functionality and makes calls to the audio tools.py file to process the audio. 
 
+
+
   *what the program does*
+
+
 
 - This program is an audio processing application that incorporates an AI model.
 - once the GUI is launched:
@@ -33,7 +37,10 @@
 - Once an audio operation has completed, the file will export to a folder called processed audio.
 - this folder will be created automatically after your first operation completes.
 
+
   *important*
+
+  
 - this program only supports .wav files. 
 - I attempted to include an audio file to allow anyone to test the remove silence function, but the file was too large.
 - If there is no silence detected, the process will fail.
@@ -42,11 +49,14 @@
 - If you must see this process work, I may demo it for you in class.
 - Otherwise, you may find a .wav file that has a long silence at the end and try it. (try 30sec of silence or so)
 
+
   *conclusion*
+
+  
 - This portion of the read me contains what my goals were initially, the issues I encountered, and what I learned.
 
 - I almost achieved exactly what I set out for initially. I wanted an audio processing application where a user could
-- manually select audio operations to perform and also pass an audio file to an AI for review and further processing.
+- manually select audio operations to perform on a file and also pass an audio file to an LLM for review and further processing.
 - however, the main issue that I ran into is that the qwen-audio model cannot be accessed through an API key,
 - it has to be run locally and my computer is not powerful enough to run the model.
 - Additionally, I could not find an alternative option that was free in order to pass an LLM raw audio files.
@@ -55,4 +65,7 @@
 - and pass that data to the LLM with my prompt. This allows the model to not only function as an audio engineering assistant
 - due to the prompt, but give specific feedback based on what the user as already done. (or what they havent done)
 - Once I got this working, I was quite happy with the result. It functions has an entry level audio processing application
-- and provides high level feedback on how to further improve your audio for implementing it into a real mix. 
+- and provides high level feedback on how to further improve your audio for implementing it into a real mix.
+- All in all I found this project quite challenging but I feel good about what I've accomplished here. I've
+- also programmed this application in a way where I can build off of it later as my knowledge and skills grow.
+- If we have a project 3 this semester I may take this further if it alligns with the assignment. 

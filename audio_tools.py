@@ -7,6 +7,10 @@ import numpy as np
 import scipy.io.wavfile as wavfile
 import soundfile as sf
 import scipy.signal as signal
+import wave
+import threading
+import time
+import simpleaudio as sa
 
 
 # this file contains the code for all audio operations.
@@ -175,3 +179,61 @@ def apply_reverb(input_file, output_file, delay_ms=50, decay=0.4):
 
     except Exception as e:
         return f"Error applying reverb: {str(e)}"
+
+
+def reverse_audio(input_path, output_path):
+    try:
+        audio = AudioSegment.from_wav(input_path)
+        reversed_audio = audio.reverse()
+        reversed_audio.export(output_path, format="wav")
+        return f"Reversed audio saved to {output_path}"
+    except Exception as e:
+        return f"Error reversing audio: {str(e)}"
+
+
+def play_with_meter(file_path, window):
+    def run():
+        try:
+            wf = wave.open(file_path, 'rb')
+            audio_data = wf.readframes(wf.getnframes())
+            samples = np.frombuffer(audio_data, dtype=np.int16)
+
+            num_channels = wf.getnchannels()
+            if num_channels == 2:
+                samples = samples[::2]  # down mix stereo to mono
+
+            chunk_size = 1024
+            step_size = chunk_size // 2  # 50% overlap
+            sample_rate = wf.getframerate()
+
+            wave_obj = sa.WaveObject(audio_data, wf.getnchannels(), wf.getsampwidth(), sample_rate)
+            play_obj = wave_obj.play()
+
+            smoothed_level = 0
+            decay_rate = 2  # lower = slower falloff
+
+            for i in range(0, len(samples) - chunk_size, step_size):
+                if not play_obj.is_playing():
+                    break
+
+                chunk = samples[i:i + chunk_size]
+                rms = np.sqrt(np.mean(chunk ** 2))
+                level = int(min(40, rms / 1000))  # scale for 0–40 meter
+
+                # Apply smoothing
+                if level > smoothed_level:
+                    smoothed_level = level
+                else:
+                    smoothed_level = max(0, smoothed_level - decay_rate)
+
+                window.write_event_value("-METER-UPDATE-", smoothed_level)
+                time.sleep(step_size / sample_rate)
+
+            play_obj.wait_done()
+            window.write_event_value("-METER-UPDATE-", 0)
+
+        except Exception as e:
+            window.write_event_value("-OUTPUT-APPEND-", f"Error in volume meter: {str(e)}\n")
+
+    threading.Thread(target=run, daemon=True).start()
+

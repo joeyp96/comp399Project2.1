@@ -1,51 +1,69 @@
 # project 2 joseph pignatone.
 import PySimpleGUI as sg
 import os
-from huggingface_hub import InferenceClient
-from audio_tools import detect_bpm, normalize_audio, remove_silence, apply_equalizer, bass_boost, apply_reverb
+import google.generativeai as genai
+import simpleaudio as sa
+# from huggingface_hub import InferenceClient (old import)
+from audio_tools import detect_bpm, normalize_audio, remove_silence, apply_equalizer, bass_boost, apply_reverb, \
+    reverse_audio, play_with_meter
+from feedback import open_feedback_window
+
+with open("secret.txt", "r", encoding="utf-8") as api_file:
+    api_key = api_file.read().strip()
+
+genai.configure(api_key=api_key)
+
+# altered from python dictionary to resolve error
+generation_config = genai.types.GenerationConfig(
+    temperature=1,
+    top_p=0.95,
+    top_k=40,
+    max_output_tokens=8192,
+    response_mime_type="text/plain",
+)
+
+model = genai.GenerativeModel(
+    model_name="gemini-2.0-flash-exp",
+    generation_config=generation_config,
+)
+
+chat_session = model.start_chat(history=[])
 
 
-# Load Hugging Face API Key from secret.txt
-def load_api_key(filepath="secret.txt"):
+def query_llm(prompt: str) -> str:
     try:
-        with open(filepath, "r") as f:
-            return f.read().strip()
-    except FileNotFoundError:
-        print("API key file not found!")
-        return None
+        response = chat_session.send_message(prompt)
+        return response.text
+    except Exception as e:
+        return f"Error contacting Gemini: {str(e)}"
 
 
-# Qwen model code from Hugging Face
-api_key = load_api_key()
-if api_key:
-    client = InferenceClient(
-        provider="hyperbolic",
-        api_key=api_key
-    )
-else:
-    client = None
+play_obj = None  # controls audio playback
 
 
-# send query to LLM
-def query_llm(prompt):
-    if not client:
-        return "API client not initialized."
+def play_audio(file_path):
+    global play_obj
+    try:
+        if not file_path.lower().endswith(".wav"):
+            return "Only .wav files can be played."
 
-    messages = [{"role": "user", "content": prompt}]
-    stream = client.chat.completions.create(
-        model="Qwen/Qwen2.5-VL-7B-Instruct",
-        messages=messages,
-        temperature=0.5,
-        max_tokens=2048,
-        top_p=0.7,
-        stream=True
-    )
+        wave_obj = sa.WaveObject.from_wave_file(file_path)
+        play_obj = wave_obj.play()
+        return f"▶️ Playing {os.path.basename(file_path)}..."
+    except Exception as e:
+        return f"Error playing audio: {str(e)}"
 
-    full_response = ""
-    for chunk in stream:
-        if chunk.choices[0].delta.content:
-            full_response += chunk.choices[0].delta.content
-    return full_response
+
+def stop_audio():
+    global play_obj
+    try:
+        if play_obj is not None and hasattr(play_obj, "stop"):
+            play_obj.stop()
+            return "⏹️ Playback stopped."
+        else:
+            return "Cannot stop playback, unsupported or not started."
+    except Exception as e:
+        return f"Error stopping playback: {str(e)}"
 
 
 # theme
@@ -87,6 +105,10 @@ layout = [
     [sg.Text("🎵 Select an audio file:", font=FONT_TEXT),
      sg.Input(key="-FILE-", font=FONT_TEXT, expand_x=True),
      sg.FileBrowse(file_types=(("Audio Files", "*.wav"),), font=FONT_TEXT)],
+    [sg.Push(),
+     sg.Button("▶️ Play Audio", button_color=("white", "green"), font=FONT_TEXT),
+     sg.Button("⏹️ Stop", button_color=("white", "red"), font=FONT_TEXT),
+     sg.Push()],
 
     # Audio tool buttons
     [sg.Frame("🛠 Manual Operations", [
@@ -95,17 +117,23 @@ layout = [
          sg.Button("Remove Silence", size=(15, 1), font=FONT_TEXT),
          sg.Button("Detect BPM", size=(15, 1), font=FONT_TEXT)],
         [sg.Button("Bass Boost", size=(15, 1), font=FONT_TEXT),
-         sg.Button("Reverb", size=(15, 1), font=FONT_TEXT)]
+         sg.Button("Reverb", size=(15, 1), font=FONT_TEXT)],
+        [sg.Button("Reverse Audio", size=(15, 1), font=FONT_TEXT)],
+        [sg.Button("*New* Suggest Feature", button_color=('white', 'blue'), font=FONT_TEXT)]
     ], expand_x=True)],
 
     # AI assistant window
     [sg.Frame("🤖 AI Assistant", [
-        [sg.Button("Analyze with AI Assistant", button_color=('white', 'green'), font=FONT_TEXT, key="AI Assistant")]
+        [sg.Button("Analyze with AI Assistant", button_color=('white', 'green'), font=FONT_TEXT, key="AI Assistant")],
+        [sg.Button("*New* Generate Audio Code", button_color=('white', 'green'), font=FONT_TEXT)]
     ], expand_x=True)],
 
     # output log window
     [sg.Text("📝 Output Log", font=FONT_TEXT)],
     [sg.Multiline(size=(90, 20), key="-OUTPUT-", autoscroll=True, disabled=True, font=("Courier New", 12))],
+    [sg.Text("🔊 Live Volume Meter", font=FONT_TEXT)],
+    [sg.ProgressBar(max_value=40, orientation='h', size=(40, 20), key='-METER-')],
+
     [sg.Push(), sg.Button("Exit", font=FONT_TEXT, button_color=("white", "red"))]
 ]
 
@@ -161,7 +189,6 @@ sg.popup_ok(
     keep_on_top=True
 )
 
-
 # event Loop for all audio operations
 while True:
     event, values = window.read()
@@ -178,7 +205,65 @@ while True:
         window["-OUTPUT-"].update(f"Selected file: {os.path.basename(file_path)}\n")
         previous_file = file_path
 
-    if event in ("Normalize", "Equalize", "Remove Silence", "Detect BPM", "Bass Boost", "Reverb"):
+    if event == "*New* Suggest Feature":
+        open_feedback_window()
+
+
+    def open_code_generator():
+        layout = [
+            [sg.Text("Describe the audio-related Python code you'd like to generate:")],
+            [sg.Multiline(size=(60, 10), key="-DESC-")],
+            [sg.Button("Generate with AI", button_color=("white", "green")),
+             sg.Button("Cancel", button_color=("white", "firebrick"))]
+        ]
+
+        window = sg.Window("🧠 Generate Audio Code", layout, modal=True)
+
+        while True:
+            event, values = window.read()
+            if event in (sg.WINDOW_CLOSED, "Cancel"):
+                break
+            elif event == "Generate with AI":
+                description = values["-DESC-"].strip()
+                if not description:
+                    sg.popup_error("Please enter a description.")
+                    continue
+
+                base_prompt = (
+                    "You are a professional developer of various audio systems. "
+                    "Create a working Python program based on the description below.\n\n"
+                    f"Description: {description}"
+                )
+
+                sg.popup_quick_message("Generating code with Gemini...", auto_close_duration=2)
+                result = query_llm(base_prompt)
+                sg.popup_scrolled(result, title="AI-Generated Code", size=(100, 30), font=("Courier New", 10))
+                break
+
+        window.close()
+
+
+    if event == "*New* Generate Audio Code":
+        open_code_generator()
+
+    elif event == "▶️ Play Audio":
+        if not os.path.isfile(file_path):
+            window["-OUTPUT-"].update("Please select a valid .wav file.\n", append=True)
+            continue
+        window["-OUTPUT-"].update(f"▶️ Playing {os.path.basename(file_path)}...\n", append=True)
+        play_with_meter(file_path, window)
+
+    elif event == "⏹️ Stop":
+        result = stop_audio()
+        window["-OUTPUT-"].update(result + "\n", append=True)
+
+    elif event == "-METER-UPDATE-":
+        window["-METER-"].update_bar(values[event])
+
+    elif event == "-OUTPUT-APPEND-":
+        window["-OUTPUT-"].update(values[event], append=True)
+
+    if event in ("Normalize", "Equalize", "Remove Silence", "Detect BPM", "Bass Boost", "Reverb", "Reverse Audio"):
         if not os.path.isfile(file_path):
             window["-OUTPUT-"].update("Please select a valid audio file.\n", append=True)
             continue
@@ -246,6 +331,14 @@ while True:
             window["-OUTPUT-"].update(result + "\n", append=True)
             applied_operations.append("Added reverb effect")
 
+        elif event == "Reverse Audio":
+            os.makedirs("processed audio", exist_ok=True)
+            output_filename = os.path.splitext(os.path.basename(file_path))[0] + "_reversed.wav"
+            output_path = os.path.join("processed audio", output_filename)
+            result = reverse_audio(file_path, output_path)
+            window["-OUTPUT-"].update(result + "\n", append=True)
+            applied_operations.append("Reversed audio")
+
     # if the user selects AI assistant, request response from LLM
     # the LLM will help the user create a professional audio file.
     elif event == "AI Assistant":
@@ -266,6 +359,5 @@ while True:
         window["-OUTPUT-"].update("\n\n NEW AI RESPONSE \n\n Sending audio summary to AI assistant...\n", append=True)
         ai_response = query_llm(prompt)
         window["-OUTPUT-"].update(ai_response + "\n", append=True)
-
 
 window.close()

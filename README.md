@@ -1,3 +1,11 @@
+* Update: New features added!
+  
+ - added sql database for user suggestions / feedback
+ - added reverse audio function
+ - added window for users to generate their own audio operations
+ - added a live volume meter
+ 
+ 
  *to run the program*
 
 

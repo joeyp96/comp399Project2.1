@@ -13,7 +13,7 @@ import time
 import simpleaudio as sa
 
 
-# this file contains the code for all audio operations.
+# this file contains the code for all audio operations
 
 # detects the selected audio files bpm
 def detect_bpm(file_path):

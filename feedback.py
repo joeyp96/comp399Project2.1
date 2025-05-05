@@ -2,7 +2,7 @@ import PySimpleGUI as sg
 import sqlite3
 import os
 
-# create the database if it doesn't exist.
+# create the database if it doesn't exist
 DB_FILE = "suggestions.db"
 if not os.path.exists(DB_FILE):
     conn = sqlite3.connect(DB_FILE)

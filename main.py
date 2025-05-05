@@ -1,4 +1,4 @@
-# project 2 joseph pignatone
+# project 2 joseph pignatone.
 import PySimpleGUI as sg
 import os
 import google.generativeai as genai
